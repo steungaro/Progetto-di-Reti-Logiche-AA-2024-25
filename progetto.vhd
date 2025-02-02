@@ -7,7 +7,7 @@
 -- Alessandro Ferdinando Verrengia -- (212680 / 10834099) --
 ------------------------------------------------------------
 
-prova
+-- LIBRERIE UTILIZZATE
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
 USE IEEE.NUMERIC_STD.ALL;
