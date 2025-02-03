@@ -67,20 +67,21 @@ BEGIN
 
 				WHEN SET_READ => -- richiesta di lettura dalla memoria --> poi WAIT
                     o_mem_addr      <= i_add + i;
-                    o_mem_we        <= '0';
-                    o_mem_en        <= '1';
+                    o_mem_we        <= '0'; -- ho effettuato una lettura
+                    o_mem_en        <= '1'; -- abilito la memoria per la lettura
+                    current         <= WAIT_MEM;
                 
 				WHEN WAIT_MEM => -- attesa della risposta della memoria -> molti controlli sulla ii
                     -- se i = 0 sto leggendo k1 e poi torno in SET_READ
-                    IF i = 0 THEN
+                    IF i = 0 THEN -- K1
                         lunghezza   <= TO_INTEGER(i_mem_data) * 128;
                         current     <= SET_READ;
                     END IF;
 
                     -- se i = 1 sto leggendo k2 e poi torno in SET_READ
-                    IF i = 1 THEN
+                    IF i = 1 THEN -- K2
                         lunghezza   <= lunghezza + TO_INTEGER(i_mem_data);
-                        current     <= SET_READ;
+                        current     <= SET_READ; -- FILTRO 7 BYTE???
                     END IF;
 
                     -- se i = 2 sto leggendo s e poi torno in SET_READ
@@ -89,7 +90,7 @@ BEGIN
 
                         -- se s = 1 i = i + 6 + 1 = i + 7
                         IF i_mem_data(0) = '1' THEN
-                            i       <= i + 6;
+                            i       <= i + 7;
                         END IF;
 
                         current     <= SET_READ;
@@ -119,6 +120,7 @@ BEGIN
                     
                     i        <= i + 1;
                     o_mem_en <= '0';
+                    o_mem_we <= '0';
                     
                 WHEN CALC => -- calcolo del valore filtrato e normalizzazione
                     pre_norm := 0;
