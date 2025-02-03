@@ -70,7 +70,7 @@ BEGIN
                     o_mem_we        <= '0';
                     o_mem_en        <= '1';
                 
-				WHEN WAIT_MEM => -- attesa della risposta della memoria -> molti controlli sulla i
+				WHEN WAIT_MEM => -- attesa della risposta della memoria -> molti controlli sulla ii
                     -- se i = 0 sto leggendo k1 e poi torno in SET_READ
                     IF i = 0 THEN
                         lunghezza   <= TO_INTEGER(i_mem_data) * 128;
