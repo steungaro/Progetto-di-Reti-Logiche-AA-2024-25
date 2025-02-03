@@ -15,7 +15,7 @@ USE IEEE.NUMERIC_STD.ALL;
 ENTITY project_reti_logiche IS
 	PORT
 	(
-		i_clk       : IN  std_logic; -- clock
+				i_clk       : IN  std_logic; -- clock
         i_rst       : IN  std_logic; -- reset ASINCRONO
         i_start     : IN  std_logic; -- start SINCRONO
         i_add       : IN  std_logic_vector(15 downto 0); -- indirizzo iniziale
@@ -31,10 +31,10 @@ ENTITY project_reti_logiche IS
 END project_reti_logiche;
 
 ARCHITECTURE Behavioral OF project_reti_logiche IS -- definizione comportamentale della macchina a stati finiti
-	TYPE STATO_T IS (IDLE, SET_READ, WAIT_MEM, CALC, DONE); -- definizione degli stati per FSM
-	SIGNAL  current:    STATO_T; -- stato corrente
+		TYPE STATO_T IS (IDLE, SET_READ, WAIT_MEM, CALC, DONE); -- definizione degli stati per FSM
+		SIGNAL  current:    STATO_T; -- stato corrente
     SIGNAL  lunghezza:  INTEGER; -- lunghezza del vettore da analizzare
-    SIGNAL  i:          INTEGER; -- contatore
+    SIGNAL  i:          INTEGER; -- contatore della posizione nella memoria
     SIGNAL  s:          std_logic; -- segnale tipo di filtro (0 per ordine 3 e 1 per ordine 5)
     SIGNAL  filtro:     INTEGER (6 DOWNTO 0); -- valori del filtro
     SIGNAL  valori:     INTEGER (6 DOWNTO 0); -- valori del vettore da filtrare
@@ -59,6 +59,7 @@ BEGIN
                         current     <= SET_READ;
                         i           <= 0;
                         lunghezza   <= 0;
+												s           <= 0;
                         filtro      <= (OTHERS => 0); -- inizializzo il filtro
                         valori      <= (OTHERS => 0); -- inizializzo i valori
                     ELSE                            -- non ho ricevuto lo start
@@ -67,11 +68,11 @@ BEGIN
 
 				WHEN SET_READ => -- richiesta di lettura dalla memoria --> poi WAIT
                     o_mem_addr      <= i_add + i;
-                    o_mem_we        <= '0'; -- ho effettuato una lettura
+                    o_mem_we        <= '0'; -- effettuo una lettura
                     o_mem_en        <= '1'; -- abilito la memoria per la lettura
                     current         <= WAIT_MEM;
                 
-				WHEN WAIT_MEM => -- attesa della risposta della memoria -> molti controlli sulla ii
+				WHEN WAIT_MEM => -- attesa della risposta della memoria -> molti controlli sulla i
                     -- se i = 0 sto leggendo k1 e poi torno in SET_READ
                     IF i = 0 THEN -- K1
                         lunghezza   <= TO_INTEGER(i_mem_data) * 128;
@@ -90,14 +91,18 @@ BEGIN
 
                         -- se s = 1 i = i + 6 + 1 = i + 7
                         IF i_mem_data(0) = '1' THEN
-                            i       <= i + 7;
+                            i       <= i + 6;
                         END IF;
 
                         current     <= SET_READ;
                     END IF;
-                    -- se i > 2 e i < 17 sto leggendo cil filtro e poi torno in SET_READ
+                    -- se i > 2 e i < 17 sto leggendo il filtro e poi torno in SET_READ
                     IF i > 2 AND i < 17 THEN
-                        filtro(i - 3) <= TO_INTEGER(i_mem_data);
+												IF i > 9 THEN
+													filtro(i - 10) = TO_INTEGER(i_mem_data); -- sto leggendo i valori del filtro di ordine 5
+												ELSE
+	                        filtro(i - 3) <= TO_INTEGER(i_mem_data); -- sto leggendo i vslori del filtro di ordine 3
+												END IF;
                         current       <= SET_READ;
                     END IF;
 
@@ -153,7 +158,7 @@ BEGIN
                     IF i = lunghezza + 17 THEN
                         current <= DONE;
                     ELSE
-                        IF i > lunghezza + 17 - 4 THEN
+                        IF i >= lunghezza + 17 THEN
                             current <= CALC;
 
                             valori(0)      <= valori(1);
@@ -171,7 +176,7 @@ BEGIN
                     
                     i <= i + 1;
 
-				WHEN DONE => -- elaborazione terminata -> o_done = 1
+				WHEN DONE => -- elaborazione terminata -> o_done = 1 finché start non viene abbassato
                     o_done <= '1';
 
                     IF i_start = '0' THEN
