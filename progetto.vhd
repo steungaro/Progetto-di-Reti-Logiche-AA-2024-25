@@ -42,9 +42,14 @@ ARCHITECTURE Behavioral OF project_reti_logiche IS	-- definizione comportamental
 
 BEGIN
 	PROCESS (i_clk, i_rst)	-- PROCESS PER LA GESTIONE DELLA MACCHINA
-	VARIABLE pre_norm:		INTEGER;	-- variabile prima della normalizzazione
-	VARIABLE norm:			INTEGER;	-- variabile dopo la normalizzazione
-	VARIABLE c:				INTEGER;	-- contatore per i cicli
+	VARIABLE pre_norm:			INTEGER;	-- variabile prima della normalizzazione
+	VARIABLE norm:				INTEGER;	-- variabile dopo la normalizzazione
+	VARIABLE c:					INTEGER;	-- contatore per i cicli
+	VARIABLE shift_4: 			INTEGER;	-- variabili per lo shift
+	VARIABLE shift_6:	 		INTEGER;	-- variabili per lo shift
+	VARIABLE shift_8: 			INTEGER;	-- variabili per lo shift
+	VARIABLE shift_10:	 		INTEGER;	-- variabili per lo shift
+	VARIABLE sign_correction: 	INTEGER;	-- variabile per la correzione del segno
 
 	BEGIN
 		IF i_rst = '1' THEN 	-- reset asincrono ricevuto -> torno allo stato iniziale e torno allo stato iniziale
@@ -135,27 +140,24 @@ BEGIN
 						pre_norm := pre_norm + valori(c) * filtro(c);
 					END LOOP;
 
-					IF pre_norm < 0 THEN	-- normalizzazione tenendo conto del segno
-						IF s = '0' THEN     -- filtro di ordine 3 -> normalizzazione con 1/12 e considero + 1 per i negativi
-							norm := TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 4) + 1) + 
-									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 6) + 1) + 
-									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 8) + 1) + 
-									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10) + 1);
-						ELSE                -- filtro di ordine 5 -> normalizzazione con 1/60 e considero + 1 per i negativi
-							norm :=	TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 6) + 1) +  
-									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10) + 1);
-						END IF;
-					
-					ELSE					
-						IF s = '0' THEN     -- filtro di ordine 3 -> normalizzazione con 1/12
-							norm := TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 4)) + 
-									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 6)) + 
-									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 8)) + 
-									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10));
-						ELSE                -- filtro di ordine 5 -> normalizzazione con 1/60
-							norm :=	TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 6)) +  
-									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10));
-						END IF;
+					-- Se pre_norm è negativo, aggiungo 1 a ogni shift
+					IF pre_norm < 0 THEN
+						sign_correction := 1;
+					ELSE
+						sign_correction := 0;
+					END IF;
+
+					-- Calcolo gli shift
+					shift_4  	:= TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 4)) 	+ sign_correction;
+					shift_6  	:= TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 6)) 	+ sign_correction;
+					shift_8  	:= TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 8)) 	+ sign_correction;
+					shift_10	:= TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10)) + sign_correction;
+
+					-- Selezione dei contributi in base a `s`
+					IF s = '0' THEN
+						norm := shift_4 + shift_6 + shift_8 + shift_10;
+					ELSE
+						norm := shift_6 + shift_10;
 					END IF;
 
 					o_mem_we 	<= '1'; 			-- abilito la scrittura
