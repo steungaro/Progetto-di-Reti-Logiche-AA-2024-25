@@ -153,7 +153,7 @@ BEGIN
 					shift_8  	:= TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 8)) 	+ sign_correction;
 					shift_10	:= TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10)) + sign_correction;
 
-					-- Selezione dei contributi in base a `s`
+					-- Selezione dei contributi in base a s
 					IF s = '0' THEN
 						norm := shift_4 + shift_6 + shift_8 + shift_10;
 					ELSE
