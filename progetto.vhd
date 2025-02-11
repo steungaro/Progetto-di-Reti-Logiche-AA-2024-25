@@ -163,6 +163,13 @@ BEGIN
 					o_mem_we 	<= '1'; 			-- abilito la scrittura
 					o_mem_en 	<= '1';				-- abilito la memoria
 					o_mem_addr  <= std_logic_vector(TO_UNSIGNED(TO_INTEGER(UNSIGNED(i_add)) + i - 4 + lunghezza, 16));	-- indirizzo di scrittura, tengo conto che i tiene la posizione relativa nell'array dell'elemento più a destra (+ 3) e che è già stato incrementato in FETCH (+ 1)
+
+					IF norm > 127 THEN				-- saturazione del valore normalizzato per evitare overflow (parole di 8 bit)
+						norm := 127;
+					ELSIF norm < -128 THEN
+						norm := -128;
+					END IF;
+
 					o_mem_data 	<= std_logic_vector(TO_SIGNED(norm, 8)); -- scrivo il valore normalizzato in memoria
 
 					
