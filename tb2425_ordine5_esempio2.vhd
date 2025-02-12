@@ -44,7 +44,7 @@ architecture project_tb_arch of tb2425 is
     signal memory_control : std_logic := '0';      -- A signal to decide when the memory is accessed
                                                    -- by the testbench or by the project
  
-    constant SCENARIO_ADDRESS : integer := 510;    -- This value may arbitrarily change
+    constant SCENARIO_ADDRESS : integer := 44;     -- This value may arbitrarily change
  
     component project_reti_logiche is
         port (
