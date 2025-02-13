@@ -79,13 +79,13 @@ BEGIN
 				WHEN FETCH =>							-- salvataggio della risposta della memoria, in base alla i capisco cosa sto leggendo
 						-- se i = 0 sto leggendo K1 e poi torno in SET_READ
 					IF i = 0 THEN 		-- K1 (8 bit più significativi di lunghezza)
-							lunghezza	<= TO_INTEGER(unsigned(i_mem_data)) * 128;
+							lunghezza	<= TO_INTEGER(UNSIGNED(i_mem_data)) * 128;
 							current		<= SET_READ;
 					END IF;
 
 						-- se i = 1 sto leggendo K2 e poi torno in SET_READ
 					IF i = 1 THEN 		-- K2 (8 bit meno significativi di lunghezza)
-							lunghezza	<= lunghezza + TO_INTEGER(unsigned(i_mem_data));
+							lunghezza	<= lunghezza + TO_INTEGER(UNSIGNED(i_mem_data));
 							current		<= SET_READ; 
 					END IF;
 
@@ -136,25 +136,25 @@ BEGIN
 					END LOOP;
 
 					IF pre_norm < 0 THEN	-- normalizzazione tenendo conto del segno
-						IF s = '0' THEN     -- filtro di ordine 3 -> normalizzazione con 1/12 e considero + 1 per i negativi
-							norm := TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 4) + 1) + 
-									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 6) + 1) + 
-									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 8) + 1) + 
-									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10) + 1);
+						IF s = '0' THEN		-- filtro di ordine 3 -> normalizzazione con 1/12 e considero + 1 per i negativi
+							norm := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 4) + 1) + 
+									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6) + 1) + 
+									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 8) + 1) + 
+									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10) + 1);
 						ELSE                -- filtro di ordine 5 -> normalizzazione con 1/60 e considero + 1 per i negativi
-							norm :=	TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 6) + 1) +  
-									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10) + 1);
+							norm :=	TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6) + 1) +  
+									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10) + 1);
 						END IF;
 					
 					ELSE					
-						IF s = '0' THEN     -- filtro di ordine 3 -> normalizzazione con 1/12
-							norm := TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 4)) + 
-											TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 6)) +
-											TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 8)) +
-											TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10));
-						ELSE                -- filtro di ordine 5 -> normalizzazione con 1/60
-							norm :=	TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 6)) +  
-											TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10));
+						IF s = '0' THEN		-- filtro di ordine 3 -> normalizzazione con 1/12
+							norm := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 4)) + 
+									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6)) +
+									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 8)) +
+									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10));
+						ELSE				-- filtro di ordine 5 -> normalizzazione con 1/60
+							norm :=	TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6)) +  
+									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10));
 						END IF;
 							END IF;
 
