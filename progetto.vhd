@@ -105,8 +105,10 @@ BEGIN
 						IF s = '1' AND i > 9 THEN
 							filtro(i - 10) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 5, quindi la i andrà da 10 a 16 inclusi
 						END IF;
-						IF s = '0' AND i < 9 THEN
+						IF s = '0' AND i < 10 THEN
 							filtro(i - 3) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 3, quindi la i andrà da 3 a 9 inclusi
+							filtro(0)		<= 0; -- il primo valore del filtro di ordine 3 è sempre 0
+							filtro(6)		<= 0; -- l'ultimo valore del filtro di ordine 3 è sempre 0
 						END IF;
 						current			<= SET_READ;
 					END IF;
