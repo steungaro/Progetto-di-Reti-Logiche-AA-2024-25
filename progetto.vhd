@@ -45,11 +45,6 @@ BEGIN
 	VARIABLE pre_norm:			INTEGER;	-- variabile prima della normalizzazione
 	VARIABLE norm:				INTEGER;	-- variabile dopo la normalizzazione
 	VARIABLE c:					INTEGER;	-- contatore per i cicli
-	VARIABLE shift_4: 			INTEGER;	-- variabili per lo shift
-	VARIABLE shift_6:	 		INTEGER;	-- variabili per lo shift
-	VARIABLE shift_8: 			INTEGER;	-- variabili per lo shift
-	VARIABLE shift_10:	 		INTEGER;	-- variabili per lo shift
-	VARIABLE sign_correction: 	INTEGER;	-- variabile per la correzione del segno
 
 	BEGIN
 		IF i_rst = '1' THEN 	-- reset asincrono ricevuto -> torno allo stato iniziale e torno allo stato iniziale
@@ -82,55 +77,53 @@ BEGIN
 					current			<= FETCH;
 
 				WHEN FETCH =>							-- salvataggio della risposta della memoria, in base alla i capisco cosa sto leggendo
-					
-					CASE i IS
 						-- se i = 0 sto leggendo K1 e poi torno in SET_READ
-						WHEN 0 =>			-- K1 (8 bit più significativi di lunghezza)
+					IF i = 0 THEN 		-- K1 (8 bit più significativi di lunghezza)
 							lunghezza	<= TO_INTEGER(unsigned(i_mem_data)) * 128;
 							current		<= SET_READ;
+					END IF;
 
 						-- se i = 1 sto leggendo K2 e poi torno in SET_READ
-						WHEN 1 => 			-- K2 (8 bit meno significativi di lunghezza)
+					IF i = 1 THEN 		-- K2 (8 bit meno significativi di lunghezza)
 							lunghezza	<= lunghezza + TO_INTEGER(unsigned(i_mem_data));
 							current		<= SET_READ; 
+					END IF;
 
 						-- se i = 2 sto leggendo S e poi torno in SET_READ
-						WHEN 2 =>
+					IF i = 2 THEN
 							s			<= i_mem_data(0);
 							current		<= SET_READ;
-
-						WHEN OTHERS =>
+					END IF;
 							
 							-- se i > 2 e i < 17 sto leggendo il filtro C1...C7 oppure C8...C14 e poi torno in SET_READ
-							IF i > 2 AND i < 17 THEN
-								IF s = '1' AND i > 9 THEN
-									filtro(i - 10) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 5, quindi la i andrà da 10 a 16 inclusi
-								END IF;
-								IF s = '0' AND i < 10 THEN
-									filtro(i - 3) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 3, quindi la i andrà da 3 a 9 inclusi
-									filtro(0)		<= 0; -- il primo valore del filtro di ordine 3 è sempre 0
-									filtro(6)		<= 0; -- l'ultimo valore del filtro di ordine 3 è sempre 0
-								END IF;
-								current			<= SET_READ;
+					IF i > 3 AND i < 17 THEN
+						IF s = '1' AND i > 9 THEN
+							filtro(i - 10) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 5, quindi la i andrà da 10 a 16 inclusi
+						END IF;
+						IF s = '0' AND i < 9 THEN
+							filtro(i - 3) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 3, quindi la i andrà da 3 a 9 esclusi (non salvo il primo e l'ultimo valore)
+						END IF;
+						current			<= SET_READ;
+					END IF;
 
 					-- se i > 16 sto leggendo W1...Wk -> inserisco i valori in valori effettuando uno shift dell'array da destra a sinistra
-							ELSIF i > 16 THEN
-								valori(0)		<= valori(1);
-								valori(1)		<= valori(2);
-								valori(2)		<= valori(3);
-								valori(3)		<= valori(4);
-								valori(4)		<= valori(5);
-								valori(5)		<= valori(6);
-								valori(6)		<= TO_INTEGER(SIGNED(i_mem_data));
-								current			<= SET_READ;
+					IF i > 16 THEN
+						valori(0)		<= valori(1);
+						valori(1)		<= valori(2);
+						valori(2)		<= valori(3);
+						valori(3)		<= valori(4);
+						valori(4)		<= valori(5);
+						valori(5)		<= valori(6);
+						valori(6)		<= TO_INTEGER(SIGNED(i_mem_data));
+						current			<= SET_READ;
 
-								IF i < 20 THEN 		-- sto leggendo uno dei primi tre valori, quindi non vado a calcolare il valore filtrato ma torno in SET_READ
-									current <= SET_READ;
-								ELSE				-- sto leggendo uno dei valori dal quarto in poi, quindi vado a calcolare il valore filtrato -> CALC
-									current <= CALC;
-								END IF;
-							END IF;
-					END CASE;						
+						IF i < 20 THEN 		-- sto leggendo uno dei primi tre valori, quindi non vado a calcolare il valore filtrato ma torno in SET_READ
+							current <= SET_READ;
+						ELSE				-- sto leggendo uno dei valori dal quarto in poi, quindi vado a calcolare il valore filtrato -> CALC
+							current <= CALC;
+						END IF;
+					END IF;
+					
 					i			<= i + 1; 	-- incremento il contatore
 					o_mem_en 	<= '0'; 	-- disabilito la memoria
 					o_mem_we 	<= '0';		-- disabilito la scrittura
@@ -138,31 +131,32 @@ BEGIN
 				WHEN CALC => 				-- calcolo del valore filtrato e normalizzazione
 					pre_norm := 0; 			-- inizializzo la variabile pre_norm locale a ogni ciclo
 
-					-- calcolo del valore filtrato (pre_norm) -> uso i valori esplicitamente perché con un ciclo for calcolerei in maniera sequenziale e non parallela (più attesa)
-					pre_norm := (valori(0) * filtro(0)) + (valori(1) * filtro(1)) + 
-								(valori(2) * filtro(2)) + (valori(3) * filtro(3)) + 
-								(valori(4) * filtro(4)) + (valori(5) * filtro(5)) + 
-								(valori(6) * filtro(6));
+					FOR c IN 0 TO 6 LOOP
+						pre_norm := pre_norm + valori(c) * filtro(c);
+					END LOOP;
 
-					-- Se pre_norm è negativo, aggiungo 1 a ogni shift
-					IF pre_norm < 0 THEN
-						sign_correction := 1;
-					ELSE
-						sign_correction := 0;
-					END IF;
-
-					-- Calcolo gli shift
-					shift_4  	:= TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 4)) 	+ sign_correction;
-					shift_6  	:= TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 6)) 	+ sign_correction;
-					shift_8  	:= TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 8)) 	+ sign_correction;
-					shift_10	:= TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10)) + sign_correction;
-
-					-- Selezione dei contributi in base a s
-					IF s = '0' THEN
-						norm := shift_4 + shift_6 + shift_8 + shift_10;
-					ELSE
-						norm := shift_6 + shift_10;
-					END IF;
+					IF pre_norm < 0 THEN	-- normalizzazione tenendo conto del segno
+						IF s = '0' THEN     -- filtro di ordine 3 -> normalizzazione con 1/12 e considero + 1 per i negativi
+							norm := TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 4) + 1) + 
+									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 6) + 1) + 
+									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 8) + 1) + 
+									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10) + 1);
+						ELSE                -- filtro di ordine 5 -> normalizzazione con 1/60 e considero + 1 per i negativi
+							norm :=	TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 6) + 1) +  
+									TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10) + 1);
+						END IF;
+					
+					ELSE					
+						IF s = '0' THEN     -- filtro di ordine 3 -> normalizzazione con 1/12
+							norm := TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 4)) + 
+											TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 6)) +
+											TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 8)) +
+											TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10));
+						ELSE                -- filtro di ordine 5 -> normalizzazione con 1/60
+							norm :=	TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 6)) +  
+											TO_INTEGER(shift_right(TO_SIGNED(pre_norm, 32), 10));
+						END IF;
+							END IF;
 
 					o_mem_we 	<= '1'; 			-- abilito la scrittura
 					o_mem_en 	<= '1';				-- abilito la memoria
