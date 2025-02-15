@@ -96,12 +96,14 @@ BEGIN
 					END IF;
 							
 							-- se i > 2 e i < 17 sto leggendo il filtro C1...C7 oppure C8...C14 e poi torno in SET_READ
-					IF i > 3 AND i < 17 THEN
+					IF i > 2 AND i < 17 THEN
 						IF s = '1' AND i > 9 THEN
 							filtro(i - 10) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 5, quindi la i andrà da 10 a 16 inclusi
 						END IF;
-						IF s = '0' AND i < 9 THEN
-							filtro(i - 3) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 3, quindi la i andrà da 3 a 9 esclusi (non salvo il primo e l'ultimo valore)
+						IF s = '0' AND i < 10 THEN
+							filtro(i - 3) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 3, quindi la i andrà da 3 a 9 inclusi
+							filtro(0) 		<= 0; -- non salvo il primo valore
+							filtro(6) 		<= 0; -- non salvo l'ultimo valore
 						END IF;
 						current			<= SET_READ;
 					END IF;
@@ -136,7 +138,7 @@ BEGIN
 					END LOOP;
 
 					IF pre_norm < 0 THEN	-- normalizzazione tenendo conto del segno
-						IF s = '0' THEN		-- filtro di ordine 3 -> normalizzazione con 1/12 e considero + 1 per i negativi
+						IF s = '0' THEN     -- filtro di ordine 3 -> normalizzazione con 1/12 e considero + 1 per i negativi
 							norm := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 4) + 1) + 
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6) + 1) + 
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 8) + 1) + 
@@ -147,12 +149,12 @@ BEGIN
 						END IF;
 					
 					ELSE					
-						IF s = '0' THEN		-- filtro di ordine 3 -> normalizzazione con 1/12
+						IF s = '0' THEN     -- filtro di ordine 3 -> normalizzazione con 1/12
 							norm := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 4)) + 
-									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6)) +
-									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 8)) +
+									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6)) + 
+									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 8)) + 
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10));
-						ELSE				-- filtro di ordine 5 -> normalizzazione con 1/60
+						ELSE                -- filtro di ordine 5 -> normalizzazione con 1/60
 							norm :=	TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6)) +  
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10));
 						END IF;
