@@ -163,13 +163,12 @@ BEGIN
 					o_mem_addr  <= std_logic_vector(UNSIGNED(i_add) + TO_UNSIGNED(i - 4 + lunghezza, 16));	-- indirizzo di scrittura, tengo conto che i tiene la posizione relativa nell'array dell'elemento più a destra (+ 3) e che è già stato incrementato in FETCH (+ 1)
 
 					IF norm > 127 THEN				-- saturazione del valore normalizzato per evitare overflow (parole di 8 bit)
-						norm := 127;
+						o_mem_data 	<= "01111111"; -- scrivo il valore saturato in memoria
 					ELSIF norm < -128 THEN
-						norm := -128;
+						o_mem_data 	<= "10000000"; -- scrivo il valore saturato in memoria
+					ELSE
+						o_mem_data 	<= std_logic_vector(TO_SIGNED(norm, 8)); -- scrivo il valore normalizzato in memoria
 					END IF;
-
-					o_mem_data 	<= std_logic_vector(TO_SIGNED(norm, 8)); -- scrivo il valore normalizzato in memoria
-
 					
 					IF i = lunghezza + 16 + 4 THEN 			-- se ho calcolato i valori fino a lunghezza + 17 + 4 di shift - 1, ho finito -> DONE
 						current <= DONE;

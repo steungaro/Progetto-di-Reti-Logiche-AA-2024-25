@@ -32,7 +32,8 @@ END project_reti_logiche;
 
 ARCHITECTURE Behavioral OF project_reti_logiche IS	-- definizione comportamentale della'entity
 	TYPE STATO_T IS (IDLE, SET_READ, WAIT_MEM, CALC, DONE, FETCH);	-- definizione degli stati per FSM
-	TYPE array_logico IS ARRAY (6 DOWNTO 0) OF signed (7 DOWNTO 0); -- definizione del tipo per un array di interi	
+	TYPE array_logico IS ARRAY (6 DOWNTO 0) OF SIGNED (7 DOWNTO 0); -- definizione del tipo per un array di interi	
+	TYPE array_mul IS ARRAY(0 TO 6) OF SIGNED (15 DOWNTO 0);
 	SIGNAL  current:	STATO_T;	-- stato corrente
 	SIGNAL  lunghezza:	unsigned (15 DOWNTO 0);	-- lunghezza del vettore da analizzare
 	SIGNAL  i:			INTEGER;	-- contatore della posizione nella memoria
@@ -41,17 +42,21 @@ ARCHITECTURE Behavioral OF project_reti_logiche IS	-- definizione comportamental
 	SIGNAL  valori:		array_logico;	-- valori del vettore da filtrare
 
 BEGIN
-	PROCESS (i_clk, i_rst)	-- PROCESS PER LA GESTIONE DELLA MACCHINA
-	VARIABLE pre_norm:			signed (31 DOWNTO 0);	-- variabile prima della normalizzazione
-	VARIABLE norm:				signed (31 DOWNTO 0);	-- variabile dopo la normalizzazione
-	VARIABLE c:					INTEGER;	-- contatore per i cicli
+	PROCESS (i_clk, i_rst)	-- PROCESS PER LA GESTIONE DELLA MACCHINA	
+	VARIABLE pre_norm:									SIGNED (15 DOWNTO 0);	-- variabile prima della normalizzazione
+	VARIABLE norm:										SIGNED (15 DOWNTO 0);	-- variabile dopo la normalizzazione
+	VARIABLE sum1, sum2, sum3:							SIGNED (15 DOWNTO 0);	-- variabili per la somma
+	VARIABLE mul:										array_mul;				-- variabile per la moltiplicazione
+	VARIABLE shift_4, shift_6, shift_8, shift_10:		SIGNED (15 DOWNTO 0);	-- variabile per lo shift
+	VARIABLE offset:									SIGNED (15 DOWNTO 0);	-- variabile per l'offset
+	VARIABLE c:											INTEGER;				-- contatore per i cicli
 
 	BEGIN
 		IF i_rst = '1' THEN 	-- reset asincrono ricevuto -> torno allo stato iniziale e torno allo stato iniziale
 			o_done		<= '0';
 			o_mem_en	<= '0';
 			current 	<= IDLE;
-		ELSIF rising_edge(i_clk) THEN
+		ELSIF RISING_EDGE(i_clk) THEN
 			CASE current IS
 	
 				WHEN IDLE => -- attesa dello START
@@ -98,10 +103,10 @@ BEGIN
 							-- se i > 2 e i < 17 sto leggendo il filtro C1...C7 oppure C8...C14 e poi torno in SET_READ
 					IF i > 3 AND i < 17 THEN
 						IF s = '1' AND i > 9 THEN
-							filtro(i - 10) 	<= signed(i_mem_data); -- sto leggendo i valori del filtro di ordine 5, quindi la i andrà da 10 a 16 inclusi
+							filtro(i - 10) 	<= SIGNED(i_mem_data); -- sto leggendo i valori del filtro di ordine 5, quindi la i andrà da 10 a 16 inclusi
 						END IF;
 						IF s = '0' AND i < 9 THEN
-							filtro(i - 3) 	<= signed(i_mem_data); -- sto leggendo i valori del filtro di ordine 3, quindi la i andrà da 3 a 9 esclusi (non salvo il primo e l'ultimo valore)
+							filtro(i - 3) 	<= SIGNED(i_mem_data); -- sto leggendo i valori del filtro di ordine 3, quindi la i andrà da 3 a 9 esclusi (non salvo il primo e l'ultimo valore)
 						END IF;
 						current			<= SET_READ;
 					END IF;
@@ -114,7 +119,7 @@ BEGIN
 						valori(3)		<= valori(4);
 						valori(4)		<= valori(5);
 						valori(5)		<= valori(6);
-						valori(6)		<= signed(i_mem_data);
+						valori(6)		<= SIGNED(i_mem_data);
 						current			<= SET_READ;
 
 						IF i < 20 THEN 		-- sto leggendo uno dei primi tre valori, quindi non vado a calcolare il valore filtrato ma torno in SET_READ
@@ -131,49 +136,59 @@ BEGIN
 				WHEN CALC => 				-- calcolo del valore filtrato e normalizzazione
 					pre_norm := (OTHERS => '0'); 			-- inizializzo la variabile pre_norm locale a ogni ciclo
 
-					FOR c IN 0 TO 6 LOOP
-						pre_norm := pre_norm + valori(c) * filtro(c);
-					END LOOP;
+					mul(0) := filtro(0) * valori(0);
+					mul(1) := filtro(1) * valori(1);
+					mul(2) := filtro(2) * valori(2);
+					mul(3) := filtro(3) * valori(3);
+					mul(4) := filtro(4) * valori(4);
+					mul(5) := filtro(5) * valori(5);
+					mul(6) := filtro(6) * valori(6);
 
-					IF signed(pre_norm) < 0 THEN	-- normalizzazione tenendo conto del segno
-						IF s = '0' THEN		-- filtro di ordine 3 -> normalizzazione con 1/12 e considero + 1 per i negativi
-							norm := 
-										shift_right(pre_norm, 4) + 1 + 
-										shift_right(pre_norm, 6) + 1 + 
-										shift_right(pre_norm, 8) + 1 + 
-										shift_right(pre_norm, 10) + 1;
-						ELSE				-- filtro di ordine 5 -> normalizzazione con 1/60 e considero + 1 per i negativi
-							norm := 
-										shift_right(pre_norm, 6) + 1 + 
-										shift_right(pre_norm, 10) + 1;
+					-- Albero di somma (Parallelizzazione)
+					sum1 := mul(0) + mul(1) + mul(2) + mul(3);
+					sum2 := mul(4) + mul(5) + mul(6);
+
+					-- Somma finale
+					pre_norm := sum1 + sum2;
+
+					-- Calcolo in parallelo degli shift
+					shift_4  := SHIFT_RIGHT(pre_norm, 4);
+					shift_6  := SHIFT_RIGHT(pre_norm, 6);
+					shift_8  := SHIFT_RIGHT(pre_norm, 8);
+					shift_10 := SHIFT_RIGHT(pre_norm, 10);
+
+					-- Selezione dell’offset senza somma extra
+					IF pre_norm < 0 THEN
+						IF s = '0' THEN
+							offset := TO_SIGNED(4, 16);
+						ELSE
+							offset := TO_SIGNED(2, 16);
 						END IF;
-					
-					ELSE					
-						IF s = '0' THEN		-- filtro di ordine 3 -> normalizzazione con 1/12
-							norm := 
-										shift_right(pre_norm, 4) + 
-										shift_right(pre_norm, 6) + 
-										shift_right(pre_norm, 8) + 
-										shift_right(pre_norm, 10);
-						ELSE				-- filtro di ordine 5 -> normalizzazione con 1/60
-							norm := 
-										shift_right(pre_norm, 6) + 
-										shift_right(pre_norm, 10);
+					ELSE
+						offset := TO_SIGNED(0, 16);  -- Nessun offset per numeri positivi
+					END IF;
+
+					sum1 := shift_4 + shift_8;
+					sum2 := shift_6 + shift_10;
+
+					IF s = '0' THEN
+							norm := sum1 + sum2 + offset;
+						ELSE
+							norm := shift_6 + shift_10 + offset;
 						END IF;
-							END IF;
+
 
 					o_mem_we 	<= '1'; 			-- abilito la scrittura
 					o_mem_en 	<= '1';				-- abilito la memoria
 					o_mem_addr  <= std_logic_vector(unsigned(i_add) + TO_UNSIGNED(i - 4, 16) + lunghezza);	-- indirizzo di scrittura, tengo conto che i tiene la posizione relativa nell'array dell'elemento più a destra (+ 3) e che è già stato incrementato in FETCH (+ 1)
 
-					IF norm > TO_SIGNED(127, 32) THEN				-- saturazione del valore normalizzato per evitare overflow (parole di 8 bit)
-						norm := TO_SIGNED(127, 32);
-					ELSIF norm < TO_SIGNED(-128, 32) THEN
-						norm := TO_SIGNED(-128, 32);
+					IF norm > TO_SIGNED(127, 16) THEN				-- saturazione del valore normalizzato per evitare overflow (parole di 8 bit)
+						o_mem_data 	<= "01111111";
+					ELSIF norm < TO_SIGNED(-128, 16) THEN
+						o_mem_data 	<= "10000000";
+					ELSE 
+						o_mem_data 	<= std_logic_vector(norm(7 DOWNTO 0)); 		-- scrivo il valore normalizzato in memoria
 					END IF;
-
-					o_mem_data 	<= std_logic_vector(norm(7 DOWNTO 0)); 		-- scrivo il valore normalizzato in memoria
-
 					
 					IF i = TO_INTEGER(lunghezza) + 16 + 4 THEN 			-- se ho calcolato i valori fino a lunghezza + 17 + 4 di shift - 1, ho finito -> DONE
 						current <= DONE;
