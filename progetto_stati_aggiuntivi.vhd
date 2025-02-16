@@ -94,15 +94,13 @@ BEGIN
 							current		<= SET_READ;
 					END IF;
 							
-							-- se i > 2 e i < 17 sto leggendo il filtro C1...C7 oppure C8...C14 e poi torno in SET_READ
+					-- se i > 2 e i < 17 sto leggendo il filtro C1...C7 oppure C8...C14 e poi torno in SET_READ
 					IF i > 2 AND i < 17 THEN
 						IF s = '1' AND i > 9 THEN
 							filtro(i - 10) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 5, quindi la i andrà da 10 a 16 inclusi
 						END IF;
-						IF s = '0' AND i < 10 THEN
-							filtro(i - 3) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 3, quindi la i andrà da 3 a 9 inclusi
-							filtro(0) 		<= 0; -- non salvo il primo valore
-							filtro(6) 		<= 0; -- non salvo l'ultimo valore
+						IF s = '0' AND i > 3 AND i < 9 THEN
+							filtro(i - 3) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 3, quindi la i andrà da 3 a 9 esclusi (non salvo il primo e l'ultimo valore)
 						END IF;
 						current			<= SET_READ;
 					END IF;
@@ -130,14 +128,15 @@ BEGIN
 					o_mem_we 	<= '0';		-- disabilito la scrittura
 					
 				WHEN PRE => 				-- calcolo del valore pre_normalizzazione
-
+					
+					-- calcolo del valore filtrato
 					pre_norm 	<= 	valori(0) * filtro(0) + 
 									valori(1) * filtro(1) + 
 									valori(2) * filtro(2) + 
 									valori(3) * filtro(3) + 
 									valori(4) * filtro(4) + 
 									valori(5) * filtro(5) + 
-									valori(6) * filtro(6); -- calcolo del valore filtrato
+									valori(6) * filtro(6); 
 
 					current 	<= NORM_STATE;		-- passo allo stato di normalizzazione
 
@@ -173,9 +172,9 @@ BEGIN
 					o_mem_addr  <= std_logic_vector(UNSIGNED(i_add) + TO_UNSIGNED(i - 4 + lunghezza, 16));	-- indirizzo di scrittura, tengo conto che i tiene la posizione relativa nell'array dell'elemento più a destra (+ 3) e che è già stato incrementato in FETCH (+ 1)
 
 					IF norm > 127 THEN				-- saturazione del valore normalizzato per evitare overflow (parole di 8 bit)
-						o_mem_data 	<= "01111111"; -- scrivo il valore saturato in memoria
+						o_mem_data 	<= "01111111"; 	-- scrivo il valore saturato in memoria
 					ELSIF norm < -128 THEN
-						o_mem_data 	<= "10000000"; -- scrivo il valore saturato in memoria
+						o_mem_data 	<= "10000000"; 	-- scrivo il valore saturato in memoria
 					ELSE
 						o_mem_data 	<= std_logic_vector(TO_SIGNED(norm, 8)); -- scrivo il valore normalizzato in memoria
 					END IF;
@@ -192,10 +191,10 @@ BEGIN
 							valori(5)		<= valori(6);
 							valori(6)		<= 0;
 
-							current 		<= PRE;		-- continuo a calcolare i valori
+							current 		<= PRE;			-- continuo a calcolare i valori senza chiedere nuovi dati alla memoria
 							i 				<= i + 1;		-- incremento il contatore (non verrà fatto in FETCH perché non ci vado)
 						ELSE								-- altrimenti vado a leggere il valore successivo
-							current 		<= SET_READ;	-- richiedo il valore successivo
+							current 		<= SET_READ;	-- richiedo il valore successivo e continuerò a calcolare i valori
 						END IF;
 					END IF;
 
