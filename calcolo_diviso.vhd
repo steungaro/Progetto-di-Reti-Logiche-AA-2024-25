@@ -31,7 +31,7 @@ ENTITY project_reti_logiche IS
 END project_reti_logiche;
 
 ARCHITECTURE Behavioral OF project_reti_logiche IS	-- definizione comportamentale della'entity
-	TYPE STATO_T IS (IDLE, SET_READ, WAIT_MEM, PRE, DONE, FETCH, NORM_STATE, WRITE_MEM);	-- definizione degli stati per FSM
+	TYPE STATO_T IS (IDLE, SET_READ, WAIT_MEM, PRE, DONE, FETCH, NORM_WRITE);	-- definizione degli stati per FSM
 	TYPE int_array IS ARRAY (6 DOWNTO 0) OF INTEGER; -- definizione del tipo per un array di interi	
 	SIGNAL  current:	STATO_T;	-- stato corrente
 	SIGNAL  lunghezza:	INTEGER;	-- lunghezza del vettore da analizzare
@@ -39,14 +39,14 @@ ARCHITECTURE Behavioral OF project_reti_logiche IS	-- definizione comportamental
 	SIGNAL  s:			std_logic;	-- segnale tipo di filtro (0 per ordine 3 e 1 per ordine 5)
 	SIGNAL  filtro:		int_array;	-- valori del filtro
 	SIGNAL  valori:		int_array;	-- valori del vettore da filtrare
-	SIGNAL pre_norm:	INTEGER;	-- segnale prima della normalizzazione
-	SIGNAL norm:		INTEGER;	-- segnale dopo la normalizzazione
-
+	SIGNAL 	pre_norm:	INTEGER;	-- segnale prima della normalizzazione
+	
 BEGIN
 	PROCESS (i_clk, i_rst)	-- PROCESS PER LA GESTIONE DELLA MACCHINA
+	VARIABLE norm:		INTEGER;	-- variabile dopo la normalizzazione
 
 	BEGIN
-		IF i_rst = '1' THEN 	-- reset asincrono ricevuto -> torno allo stato iniziale e torno allo stato iniziale
+		IF i_rst = '1' THEN 	-- reset asincrono ricevuto -> torno allo stato iniziale e azzero i registri
 			o_done		<= '0';
 			o_mem_en	<= '0';
 			current 	<= IDLE;
@@ -78,7 +78,7 @@ BEGIN
 				WHEN FETCH =>							-- salvataggio della risposta della memoria, in base alla i capisco cosa sto leggendo
 						-- se i = 0 sto leggendo K1 e poi torno in SET_READ
 					IF i = 0 THEN 		-- K1 (8 bit più significativi di lunghezza)
-							lunghezza	<= TO_INTEGER(UNSIGNED(i_mem_data)) * 128;
+							lunghezza	<= TO_INTEGER(UNSIGNED(i_mem_data)) * 256;
 							current		<= SET_READ;
 					END IF;
 
@@ -127,9 +127,8 @@ BEGIN
 					o_mem_en 	<= '0'; 	-- disabilito la memoria
 					o_mem_we 	<= '0';		-- disabilito la scrittura
 					
-				WHEN PRE => 				-- calcolo del valore pre_normalizzazione
+				WHEN PRE => 				-- calcolo del valore pre_normalizzazione, è uno stato a parte per ridurre il percorso critico
 					
-					-- calcolo del valore filtrato
 					pre_norm 	<= 	valori(0) * filtro(0) + 
 									valori(1) * filtro(1) + 
 									valori(2) * filtro(2) + 
@@ -138,34 +137,31 @@ BEGIN
 									valori(5) * filtro(5) + 
 									valori(6) * filtro(6); 
 
-					current 	<= NORM_STATE;		-- passo allo stato di normalizzazione
+					current 	<= NORM_WRITE;		-- passo allo stato di normalizzazione e scrittura in memoria
 
-				WHEN NORM_STATE =>					-- normalizzazione del valore filtrato
+				WHEN NORM_WRITE =>					-- normalizzazione del valore filtrato e scrittura in memoria
 					IF pre_norm < 0 THEN	-- normalizzazione tenendo conto del segno
 						IF s = '0' THEN		-- filtro di ordine 3 -> normalizzazione con 1/12 e considero + 1 per i negativi
-							norm <= TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 4) + 1) + 
+							norm := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 4) + 1) + 
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6) + 1) + 
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 8) + 1) + 
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10) + 1);
 						ELSE                -- filtro di ordine 5 -> normalizzazione con 1/60 e considero + 1 per i negativi
-							norm <=	TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6) + 1) +  
+							norm :=	TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6) + 1) +  
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10) + 1);
 						END IF;
 					
 					ELSE					
 						IF s = '0' THEN		-- filtro di ordine 3 -> normalizzazione con 1/12
-							norm <= TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 4)) + 
+							norm := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 4)) + 
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6)) +
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 8)) +
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10));
 						ELSE				-- filtro di ordine 5 -> normalizzazione con 1/60
-							norm <=	TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6)) +  
+							norm :=	TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6)) +  
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10));
 						END IF;
-							END IF;
-					current <= WRITE_MEM;	-- passo allo stato di scrittura in memoria
-				
-				WHEN WRITE_MEM =>				-- scrittura del valore normalizzato in memoria
+					END IF;
 
 					o_mem_we 	<= '1'; 			-- abilito la scrittura
 					o_mem_en 	<= '1';				-- abilito la memoria

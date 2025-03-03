@@ -79,7 +79,7 @@ BEGIN
 				WHEN FETCH =>							-- salvataggio della risposta della memoria, in base alla i capisco cosa sto leggendo
 						-- se i = 0 sto leggendo K1 e poi torno in SET_READ
 					IF i = 0 THEN 		-- K1 (8 bit più significativi di lunghezza)
-							lunghezza	<= TO_INTEGER(UNSIGNED(i_mem_data)) * 128;
+							lunghezza	<= TO_INTEGER(UNSIGNED(i_mem_data)) * 256;
 							current		<= SET_READ;
 					END IF;
 
@@ -100,10 +100,8 @@ BEGIN
 						IF s = '1' AND i > 9 THEN
 							filtro(i - 10) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 5, quindi la i andrà da 10 a 16 inclusi
 						END IF;
-						IF s = '0' AND i < 10 THEN
-							filtro(i - 3) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 3, quindi la i andrà da 3 a 9 inclusi
-							filtro(0) 		<= 0; -- non salvo il primo valore
-							filtro(6) 		<= 0; -- non salvo l'ultimo valore
+						IF s = '0' AND i > 3 AND i < 9 THEN
+							filtro(i - 3) 	<= TO_INTEGER(SIGNED(i_mem_data)); -- sto leggendo i valori del filtro di ordine 3, quindi la i andrà da 3 a 9 esclusi (non salvo il primo e l'ultimo valore)
 						END IF;
 						current			<= SET_READ;
 					END IF;
