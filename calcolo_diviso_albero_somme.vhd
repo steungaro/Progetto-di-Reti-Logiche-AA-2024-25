@@ -141,17 +141,18 @@ BEGIN
 					sum1 := sum1 + sum2;
 					sum3 := sum3 + sum4;
 
-					pre_norm := sum1 + sum3;
+					pre_norm <= sum1 + sum3;
 
 					current 	<= NORM_WRITE;		-- passo allo stato di normalizzazione e scrittura in memoria
 
 				WHEN NORM_WRITE =>					-- normalizzazione del valore filtrato e scrittura in memoria
 					IF pre_norm < 0 THEN	-- normalizzazione tenendo conto del segno
 						IF s = '0' THEN		-- filtro di ordine 3 -> normalizzazione con 1/12 e considero + 1 per i negativi
-							norm := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 4) + 1) + 
-									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6) + 1) + 
-									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 8) + 1) + 
+							sum1 := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 4) + 1) + 
+									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6) + 1);
+							sum2 := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 8) + 1) + 
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10) + 1);
+							norm := sum1 + sum2;
 						ELSE                -- filtro di ordine 5 -> normalizzazione con 1/60 e considero + 1 per i negativi
 							norm :=	TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6) + 1) +  
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10) + 1);
@@ -159,10 +160,11 @@ BEGIN
 					
 					ELSE					
 						IF s = '0' THEN		-- filtro di ordine 3 -> normalizzazione con 1/12
-							norm := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 4)) + 
-									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6)) +
-									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 8)) +
+							sum1 := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 4)) + 
+									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6));
+							sum2 := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 8)) +
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10));
+							norm := sum1 + sum2;
 						ELSE				-- filtro di ordine 5 -> normalizzazione con 1/60
 							norm :=	TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6)) +  
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10));
