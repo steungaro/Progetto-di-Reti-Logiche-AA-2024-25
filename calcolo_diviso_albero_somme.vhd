@@ -12,6 +12,7 @@ LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
 USE IEEE.NUMERIC_STD.ALL;
 
+-- ENTITY DEL PROGETTO
 ENTITY project_reti_logiche IS
 	PORT
 	(
@@ -30,6 +31,7 @@ ENTITY project_reti_logiche IS
 	);
 END project_reti_logiche;
 
+-- ARCHITETTURA DEL PROGETTO
 ARCHITECTURE Behavioral OF project_reti_logiche IS	-- definizione comportamentale della'entity
 	TYPE STATO_T IS (IDLE, SET_READ, WAIT_MEM, PRE, DONE, FETCH, NORM_WRITE);	-- definizione degli stati per FSM
 	TYPE int_array IS ARRAY (6 DOWNTO 0) OF INTEGER; -- definizione del tipo per un array di interi	
@@ -42,7 +44,7 @@ ARCHITECTURE Behavioral OF project_reti_logiche IS	-- definizione comportamental
 	SIGNAL 	pre_norm:	INTEGER;	-- segnale prima della normalizzazione
 	
 BEGIN
-	PROCESS (i_clk, i_rst)	-- PROCESS PER LA GESTIONE DELLA MACCHINA
+	PROCESS (i_clk, i_rst)			-- PROCESS PER LA GESTIONE DELLA MACCHINA - UNICO PROCESSO COMANDATO DAL CLOCK E DAL RESET
 	VARIABLE norm:		INTEGER;	-- variabile dopo la normalizzazione
 	VARIABLE sum1:		INTEGER;	-- variabile per la somma parziale
 	VARIABLE sum2:		INTEGER;	-- variabile per la somma parziale
@@ -50,36 +52,35 @@ BEGIN
 	VARIABLE sum4:		INTEGER;	-- variabile per la somma parziale
 
 	BEGIN
-		IF i_rst = '1' THEN 	-- reset asincrono ricevuto -> torno allo stato iniziale e azzero i registri
+		IF i_rst = '1' THEN 		-- reset asincrono ricevuto -> torno allo stato iniziale e azzero i registri
 			o_done		<= '0';
 			o_mem_en	<= '0';
 			current 	<= IDLE;
 		ELSIF rising_edge(i_clk) THEN
 			CASE current IS
 	
-				WHEN IDLE => -- attesa dello START
-					o_done <= '0';
-					IF i_start = '1' THEN				-- ho ricevuto lo start -> inizializzo tutti i valori e poi passo a SET_READ
+				WHEN IDLE => 		-- stato di attesa dello START
+					IF i_start = '1' THEN				-- start ricevuto -> inizializzo tutti i valori e poi passo a SET_READ
 						i			<= 0;
 						lunghezza	<= 0;
 						s			<= '0';
 						filtro		<= (OTHERS => 0); 	-- inizializzo il filtro
 						valori		<= (OTHERS => 0); 	-- inizializzo i valori
 						current		<= SET_READ;		-- prossimo stato
-					ELSE								-- non ho ricevuto lo start -> rimango in IDLE
+					ELSE								-- start non ricevuto -> la macchina rimane in attesa in IDLE
 						current		<= IDLE;
 					END IF;
 
-				WHEN SET_READ =>						-- richiesta di lettura dalla memoria utilizzando i come posizione -> poi WAIT_MEM
-					o_mem_addr		<= std_logic_vector(UNSIGNED(i_add) + TO_UNSIGNED(i, 16)); -- indirizzo di lettura
-					o_mem_we		<= '0'; 			-- effettuo una lettura, we = 0
+				WHEN SET_READ =>						-- stato di richiesta di lettura dalla memoria utilizzando i come indice della posizione relativa in memoria -> poi WAIT_MEM per attendere i dati
+					o_mem_addr		<= std_logic_vector(UNSIGNED(i_add) + TO_UNSIGNED(i, 16)); -- indirizzo di lettura (i_addr + i)
+					o_mem_we		<= '0'; 			-- si effettua una lettura, we = 0
 					o_mem_en		<= '1'; 			-- abilito la memoria per la lettura, en = 1
-					current			<= WAIT_MEM;		-- prossimo stato
+					current			<= WAIT_MEM;		-- prossimo stato -> attesa della risposta della memoria
 
-				WHEN WAIT_MEM => 						-- attesa della risposta della memoria per un ciclo di clock -> poi FETCH
+				WHEN WAIT_MEM => 						-- attesa della risposta della memoria per un ciclo di clock, nessuna azione -> poi FETCH
 					current			<= FETCH;
 
-				WHEN FETCH =>							-- salvataggio della risposta della memoria, in base alla i capisco cosa sto leggendo
+				WHEN FETCH =>							-- stato di salvataggio della risposta della memoria, in base alla i si salvano i valori letti in variabili diverse
 						-- se i = 0 sto leggendo K1 e poi torno in SET_READ
 					IF i = 0 THEN 		-- K1 (8 bit più significativi di lunghezza)
 							lunghezza	<= TO_INTEGER(UNSIGNED(i_mem_data)) * 256;
@@ -109,7 +110,7 @@ BEGIN
 						current			<= SET_READ;
 					END IF;
 
-					-- se i > 16 sto leggendo W1...Wk -> inserisco i valori in valori effettuando uno shift dell'array da destra a sinistra
+					-- se i > 16 sto leggendo W1...Wk -> inserisco i dati in valori effettuando uno shift dell'array da destra a sinistra
 					IF i > 16 THEN
 						valori(0)		<= valori(1);
 						valori(1)		<= valori(2);
@@ -120,9 +121,9 @@ BEGIN
 						valori(6)		<= TO_INTEGER(SIGNED(i_mem_data));
 						current			<= SET_READ;
 
-						IF i < 20 THEN 		-- sto leggendo uno dei primi tre valori, quindi non vado a calcolare il valore filtrato ma torno in SET_READ
+						IF i < 20 THEN 		-- sto leggendo uno dei primi tre valori della sequenza, quindi non vado ancora a calcolare il valore filtrato ma torno in SET_READ
 							current <= SET_READ;
-						ELSE				-- sto leggendo uno dei valori dal quarto in poi, quindi vado a calcolare il valore filtrato -> CALC
+						ELSE				-- sto leggendo uno dei valori dal quarto in poi, quindi vado a calcolare il valore filtrato -> stato PRE (pre_normalizzazione)
 							current <= PRE;
 						END IF;
 					END IF;
@@ -131,49 +132,63 @@ BEGIN
 					o_mem_en 	<= '0'; 	-- disabilito la memoria
 					o_mem_we 	<= '0';		-- disabilito la scrittura
 					
-				WHEN PRE => 				-- calcolo del valore pre_normalizzazione, è uno stato a parte per ridurre il percorso critico
+				WHEN PRE => 				-- calcolo del valore pre_normalizzazione, è separato da NORM_WRITE per ridurre il percorso critico che si avrebbe con un unico stato (pre + norm + write)
 					
-					sum1 := valori(0) * filtro(0) + valori(1) * filtro(1);
-					sum2 := valori(2) * filtro(2) + valori(3) * filtro(3);
-					sum3 := valori(4) * filtro(4) + valori(5) * filtro(5);
-					sum4 := valori(6) * filtro(6);
+					-- calcolo del valore utilizzando un albero delle somme per ridurre il percorso critico
+					sum1 		:= valori(0) * filtro(0) + valori(1) * filtro(1);
+					sum2 		:= valori(2) * filtro(2) + valori(3) * filtro(3);
+					sum3 		:= valori(4) * filtro(4) + valori(5) * filtro(5);
+					sum4 		:= valori(6) * filtro(6);
 
-					sum1 := sum1 + sum2;
-					sum3 := sum3 + sum4;
+					-- somma delle somme parziali
+					sum1 		:= sum1 + sum2;
+					sum3 		:= sum3 + sum4;
 
-					pre_norm <= sum1 + sum3;
+					-- somma totale (segnale inter-stati)
+					pre_norm 	<= sum1 + sum3;
 
 					current 	<= NORM_WRITE;		-- passo allo stato di normalizzazione e scrittura in memoria
 
 				WHEN NORM_WRITE =>					-- normalizzazione del valore filtrato e scrittura in memoria
-					IF pre_norm < 0 THEN	-- normalizzazione tenendo conto del segno
-						IF s = '0' THEN		-- filtro di ordine 3 -> normalizzazione con 1/12 e considero + 1 per i negativi
+
+					-- normalizzazione del valore pre_normalizzazione
+
+					IF pre_norm < 0 THEN			-- normalizzazione tenendo conto del segno
+						IF s = '0' THEN				-- filtro di ordine 3 -> normalizzazione con 1/12 e considero + 1 per i negativi
+							-- utilizzo l'albero delle somme per ridurre il percorso critico
 							sum1 := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 4) + 1) + 
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6) + 1);
 							sum2 := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 8) + 1) + 
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10) + 1);
+							
+							-- somma delle somme parziali
 							norm := sum1 + sum2;
-						ELSE                -- filtro di ordine 5 -> normalizzazione con 1/60 e considero + 1 per i negativi
+						ELSE                		-- filtro di ordine 5 -> normalizzazione con 1/60 e considero + 1 per i negativi
 							norm :=	TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6) + 1) +  
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10) + 1);
 						END IF;
 					
 					ELSE					
-						IF s = '0' THEN		-- filtro di ordine 3 -> normalizzazione con 1/12
+						IF s = '0' THEN				-- filtro di ordine 3 -> normalizzazione con 1/12
+							-- utilizzo l'albero delle somme per ridurre il percorso critico
 							sum1 := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 4)) + 
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6));
 							sum2 := TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 8)) +
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10));
+
+							-- somma delle somme parziali
 							norm := sum1 + sum2;
-						ELSE				-- filtro di ordine 5 -> normalizzazione con 1/60
+						ELSE						-- filtro di ordine 5 -> normalizzazione con 1/60
 							norm :=	TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 6)) +  
 									TO_INTEGER(SHIFT_RIGHT(TO_SIGNED(pre_norm, 32), 10));
 						END IF;
 					END IF;
 
+					-- scrittura in memoria del valore normalizzato
+
 					o_mem_we 	<= '1'; 			-- abilito la scrittura
 					o_mem_en 	<= '1';				-- abilito la memoria
-					o_mem_addr  <= std_logic_vector(UNSIGNED(i_add) + TO_UNSIGNED(i - 4 + lunghezza, 16));	-- indirizzo di scrittura, tengo conto che i tiene la posizione relativa nell'array dell'elemento più a destra (+ 3) e che è già stato incrementato in FETCH (+ 1)
+					o_mem_addr  <= std_logic_vector(UNSIGNED(i_add) + TO_UNSIGNED(i - 4 + lunghezza, 16));	-- indirizzo di scrittura, NB: i tiene la posizione relativa in memoria dell'ultimo elemento dell'array dei valori (+ 3) e è già stato incrementato in FETCH (+ 1)
 
 					IF norm > 127 THEN				-- saturazione del valore normalizzato per evitare overflow (parole di 8 bit)
 						o_mem_data 	<= "01111111"; 	-- scrivo il valore saturato in memoria
@@ -186,7 +201,7 @@ BEGIN
 					IF i = lunghezza + 16 + 4 THEN 			-- se ho calcolato i valori fino a lunghezza + 17 + 4 di shift - 1, ho finito -> DONE
 						current <= DONE;
 					ELSE									-- altrimenti devo fare altri calcoli
-						IF i > lunghezza + 16 THEN			-- se sto per richiedere il valore successivo all'ultimo in memoria (lunghezza + 17 + 1) inserisco degli zeri
+						IF i > lunghezza + 16 THEN			-- se sto per richiedere il valore successivo all'ultimo in memoria (lunghezza + 17 + 1) inserisco degli zeri e non vado a leggere il valore successivo in memoria
 							valori(0)		<= valori(1);
 							valori(1)		<= valori(2);
 							valori(2)		<= valori(3);
@@ -203,12 +218,13 @@ BEGIN
 					END IF;
 
 				WHEN DONE => 	-- elaborazione terminata -> o_done = 1 finché start non viene abbassato
-					o_done 	<= '1';
-					o_mem_en <= '0';
-					o_mem_we <= '0';
+					o_done 		<= '1';
+					o_mem_en 	<= '0';
+					o_mem_we 	<= '0';
 
 					IF i_start = '0' THEN
-						-- se abbasso il segnale di start posso ripartire -> IDLE
+						-- se viene abbassato il segnale di start posso ripartire -> IDLE
+						o_done 	<= '0';
 						current <= IDLE;
 						ELSE
 						-- altrimenti rimango in DONE
