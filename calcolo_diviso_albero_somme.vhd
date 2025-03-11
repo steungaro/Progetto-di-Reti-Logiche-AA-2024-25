@@ -134,7 +134,7 @@ BEGIN
 					
 				WHEN PRE => 				-- calcolo del valore pre_normalizzazione, è separato da NORM_WRITE per ridurre il percorso critico che si avrebbe con un unico stato (pre + norm + write)
 					
-					-- calcolo del valore utilizzando un albero delle somme per ridurre il percorso critico
+					-- calcolo del valore pre-normalizzazione utilizzando un albero delle somme per ridurre il percorso critico
 					sum1 		:= valori(0) * filtro(0) + valori(1) * filtro(1);
 					sum2 		:= valori(2) * filtro(2) + valori(3) * filtro(3);
 					sum3 		:= valori(4) * filtro(4) + valori(5) * filtro(5);
