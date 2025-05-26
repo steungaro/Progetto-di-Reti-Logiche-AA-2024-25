@@ -2,7 +2,7 @@
 
 > Prova finale del corso di **Reti Logiche**, Anno Accademico 2024/2025  
 > Politecnico di Milano  
-> **Valutazione finale: 30 e lode**
+> **Valutazione finale: 30 e lode**  
 > **Autori**: Stefano Ungaro e Alessandro Verrengia
 
 ---
