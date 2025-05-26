@@ -1,4 +1,4 @@
-# ⚙️ Progetto di Reti Logiche – Filtro Differenziale su RAM (30 e lode)
+# ⚙️ Progetto di Reti Logiche – Filtro Differenziale su RAM
 
 > Prova finale del corso di **Reti Logiche**, Anno Accademico 2024/2025  
 > Politecnico di Milano  
@@ -29,12 +29,13 @@ Il sistema si presta a essere integrato in pipeline digitali per elaborazioni di
 - I filtri disponibili sono:
   - Ordine 3: `[0, -1, 8, 0, -8, 1, 0]` con normalizzazione `n = 12`
   - Ordine 5: `[1, -9, 45, 0, -45, 9, -1]` con normalizzazione `n = 60`
+NB: è possibile cambiare i coefficienti (ma non il valore di normalizzazione) modificando gli array istanziati nel Testbench.
 
 - **Normalizzazione**:
-  - Implementata tramite shift logici e compensazioni per valori negativi,
+  - Implementata tramite shift logici a destra e compensazioni per valori negativi,
   - Approccio efficiente per l'uso in hardware (no divisione esplicita).
 
-- I risultati (`R1...Rk`) vengono scritti a partire da `ADD + 17 + K`.
+- I risultati (`R1...Rk`) vengono scritti in memoria subito dopo i valori di ingresso.
 
 ---
 
@@ -88,14 +89,10 @@ Tutti i test sono **stati superati** con risultati conformi alle attese.
 ## 📦 Struttura del Progetto
 
 ```bash
-📁 filtro-differenziale-vhdl
-├── src/
-│   └── project_reti_logiche.vhd       # Componente principale
-├── tb/
-│   └── test_bench_*.vhd               # Test bench utilizzati
-├── synth/
-│   └── report_utilization.txt         # Risultati sintesi
-│   └── report_timing.txt              # Analisi slack e timing
-├── doc/
-│   └── relazione_progetto.pdf         # Relazione tecnica completa
+📁 progetto_reti_logiche
+├── CONSEGNA/
+│   └── 10836481_10834099.vhd          # Componente principale
+│   └── 10836481_10834099.pdf           # Relazione di progetto
+├── Testbench/
+│   └── *.vhd                          # Test bench utilizzati
 ├── README.md
