@@ -91,8 +91,8 @@ Tutti i test sono **stati superati** con risultati conformi alle attese.
 ```bash
 📁 progetto_reti_logiche
 ├── CONSEGNA/
-│   └── 10836481_10834099.vhd          # Componente principale
-│   └── 10836481_10834099.pdf          # Relazione di progetto
+│   └── progetto.vhd                   # Componente principale
+│   └── relazione.pdf                  # Relazione di progetto
 ├── Testbench/
 │   └── *.vhd                          # Test bench utilizzati
 ├── README.md
